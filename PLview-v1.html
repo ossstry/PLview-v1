@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ProLigView X</title>
+<script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+<style>
+*{box-sizing:border-box}
+html,body,#app{height:100%;margin:0;font-family:"Segoe UI","Microsoft YaHei",sans-serif}
+#app{display:flex;background:#fff}
+.side{width:360px;flex:none;padding:16px;background:#101827;color:#eef3fa;overflow:auto}
+.side h2{margin:0}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.langbtn{border:1px solid #475569;background:#1e293b;color:#cbd8e8;border-radius:20px;padding:5px 12px;font-size:11px;cursor:pointer}
+.langbtn:hover{border-color:#22d3ee;color:#fff}
+.muted{color:#94a3b8;font-size:11px;line-height:1.6}
+.box{margin-top:13px;padding:12px;border:1px solid #334155;border-radius:12px;background:rgba(255,255,255,.03)}
+.box b{font-size:12px}
+.drop{padding:16px;border:1px dashed #22d3ee;text-align:center;border-radius:10px;cursor:pointer;font-size:12px}
+.drop:hover{background:rgba(34,211,238,.08)}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:9px 0;font-size:12px}
+select,input,button{font:inherit}
+select{background:#1e293b;color:#fff;border:1px solid #475569;border-radius:7px;padding:5px;max-width:160px}
+input[type=range]{width:110px;accent-color:#22d3ee}
+input[type=color]{width:38px;height:24px;border:1px solid #475569;border-radius:5px;background:transparent;cursor:pointer;padding:1px}
+.btn{width:100%;padding:9px;border:0;border-radius:8px;background:#22d3ee;color:#06202a;font-weight:700;cursor:pointer}
+.toggle{width:38px;height:21px;border-radius:20px;background:#475569;position:relative;cursor:pointer;flex:none}
+.toggle:after{content:"";position:absolute;width:17px;height:17px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.15s}
+.toggle.on{background:var(--c,#22c55e)}
+.toggle.on:after{left:19px}
+.itag{display:inline-block;width:20px;border-top:3px dashed;margin-right:6px;vertical-align:middle}
+.stat{background:rgba(255,255,255,.05);border:1px solid #334155;border-radius:8px;padding:8px;font-size:11px;margin-top:8px}
+.stat b{color:#22c55e}
+.swatches{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0 2px}
+.sw{width:22px;height:22px;border-radius:5px;cursor:pointer;border:2px solid transparent;transition:.1s}
+.sw:hover{transform:scale(1.12)}
+.main{position:relative;flex:1}
+.viewer{position:absolute;inset:0}
+.hint{position:absolute;inset:0;display:grid;place-items:center;color:#64748b;pointer-events:none}
+.status{position:absolute;left:16px;top:16px;padding:9px 12px;background:rgba(255,255,255,.9);border:1px solid #cbd5e1;border-radius:9px;font-size:12px;color:#0f172a}
+.legend{position:absolute;right:16px;bottom:16px;background:rgba(255,255,255,.92);border:1px solid #cbd5e1;border-radius:9px;padding:10px 12px;font-size:11px;color:#334155;line-height:1.9}
+.espbar{position:absolute;right:16px;top:16px;background:rgba(255,255,255,.92);border:1px solid #cbd5e1;border-radius:9px;padding:8px 10px;font-size:11px;color:#334155;display:none}
+.espgrad{height:10px;width:120px;border-radius:3px;background:linear-gradient(90deg,#d33,#fff,#36c);margin:4px 0}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="side">
+    <div class="topbar">
+      <h2>ProLigView X</h2>
+      <button id="langBtn" class="langbtn">EN</button>
+    </div>
+    <div class="muted" data-i18n="subtitle">蛋白-配体相互作用 · 前后景深与严格 π-cation</div>
+
+    <div class="box">
+      <b data-i18n="load">载入复合物</b>
+      <div id="drop" class="drop" style="margin-top:10px" data-i18n="drop">拖入或点击选择 PDB / mmCIF</div>
+      <input id="file" hidden type="file" accept=".pdb,.ent,.cif,.mmcif">
+    </div>
+
+    <div class="box">
+      <b data-i18n="basic">基础显示</b>
+      <div class="row"><span data-i18n="bg">背景</span>
+        <select id="bg"><option value="white" data-i18n="white">白色</option><option value="black" data-i18n="black">黑色</option><option value="#07101c" data-i18n="darkc">深色</option></select></div>
+      <div class="row"><span data-i18n="protColor">蛋白 Cartoon 色</span><input id="pc" type="color" value="#b98fd6"></div>
+      <div class="swatches" id="protSwatch"></div>
+      <div class="row"><span data-i18n="ligColor">配体碳色</span><input id="lc" type="color" value="#3fb56b"></div>
+      <div class="swatches" id="ligSwatch"></div>
+      <div class="row"><span data-i18n="resColor">口袋残基碳色</span><input id="resc" type="color" value="#9aa7b4"></div>
+      <div class="row"><span data-i18n="opacity">Cartoon 透明度</span><input id="op" type="range" min="0.1" max="1" step="0.05" value="0.85"></div>
+      <div class="row"><span data-i18n="stick">棒粗细</span><input id="rad" type="range" min="0.08" max="0.35" step="0.01" value="0.18"></div>
+      <div class="row"><span data-i18n="dbond">官能团双键显示</span><i id="dbond" class="toggle on"></i></div>
+      <div class="row"><span data-i18n="sidechain">显示口袋残基侧链</span><i id="pocket" class="toggle on"></i></div>
+    </div>
+
+    <div class="box">
+      <b data-i18n="depthBox">景深 (Depth cueing)</b>
+      <div class="row"><span data-i18n="depth">启用景深</span><i id="depth" class="toggle"></i></div>
+      <div class="row"><span data-i18n="frontDepth">前景深（近裁剪）</span><input id="frontv" type="range" min="0" max="0.95" step="0.05" value="0.15"></div>
+      <div class="row"><span data-i18n="backDepth">后景深（远裁剪）</span><input id="backv" type="range" min="0" max="0.95" step="0.05" value="0.4"></div>
+      <div class="muted" data-i18n="depthNote">前景深裁掉靠近镜头的结构，后景深裁掉远处结构，两者配合可突出结合口袋。</div>
+    </div>
+
+    <div class="box">
+      <b data-i18n="hydrogen">氢原子</b>
+      <div class="row"><span data-i18n="hmode">氢显示模式</span>
+        <select id="hmode"><option value="polar" data-i18n="hpolar">仅极性氢</option><option value="all" data-i18n="hall">显示所有氢</option><option value="none" data-i18n="hnone">隐藏所有氢</option></select></div>
+      <div class="row"><span data-i18n="addH">自动补极性氢（无氢时）</span><i id="addH" class="toggle on"></i></div>
+      <div class="stat"><span data-i18n="explicitH">显式氢</span>：<b id="hc">0</b>　<span data-i18n="polarH">极性氢</span>：<b id="hp">0</b>　<span data-i18n="geomHB">几何氢键</span>：<b id="hbn">0</b></div>
+    </div>
+
+    <div class="box">
+      <b data-i18n="interactions">相互作用类型</b>
+      <div class="row"><span><i class="itag" style="border-color:#d4c200"></i><span data-i18n="hbond">氢键 / 极性接触</span></span><i id="iHB" class="toggle on" style="--c:#d4c200"></i></div>
+      <div class="row"><span><i class="itag" style="border-color:#ff7b00"></i><span data-i18n="saltbridge">盐桥</span></span><i id="iSB" class="toggle on" style="--c:#ff7b00"></i></div>
+      <div class="row"><span><i class="itag" style="border-color:#22c55e"></i><span data-i18n="pipi">π-π 堆积</span></span><i id="iPP" class="toggle on" style="--c:#22c55e"></i></div>
+      <div class="row"><span><i class="itag" style="border-color:#38bdf8"></i><span data-i18n="pication">π-cation</span></span><i id="iPC" class="toggle on" style="--c:#38bdf8"></i></div>
+    </div>
+
+    <div class="box">
+      <b data-i18n="surface">分子表面 / 静电势</b>
+      <div class="row"><span data-i18n="surfType">表面类型</span>
+        <select id="surf">
+          <option value="none" data-i18n="sNone">无</option>
+          <option value="ligand" data-i18n="sLig">配体表面</option>
+          <option value="pocket" data-i18n="sPocket">口袋表面</option>
+          <option value="protein" data-i18n="sProt">整体蛋白表面</option>
+          <option value="esp_lig" data-i18n="sEspLig">静电势面（配体）</option>
+          <option value="esp_prot" data-i18n="sEspProt">静电势面（蛋白）</option>
+        </select></div>
+      <div class="row"><span data-i18n="surfOp">表面透明度</span><input id="surfop" type="range" min="0.15" max="1" step="0.05" value="0.7"></div>
+      <div class="muted" data-i18n="espNote">静电势为基于原子伪电荷的近似 ESP 着色，红=负 / 蓝=正，定性判读用。</div>
+    </div>
+
+    <div class="box">
+      <b data-i18n="labels">残基标签</b>
+      <div class="row"><span data-i18n="showLabel">显示口袋标签</span><i id="label" class="toggle on"></i></div>
+      <div class="row"><span data-i18n="autoLabel">标签颜色跟随背景</span><i id="autolabel" class="toggle on"></i></div>
+      <div class="row"><span data-i18n="labelSize">标签字号</span><input id="lsize" type="range" min="9" max="20" step="1" value="12"></div>
+    </div>
+
+    <div class="box"><button id="png" class="btn" data-i18n="export">导出 PNG</button></div>
+  </div>
+
+  <div class="main">
+    <div id="viewer" class="viewer"></div>
+    <div id="hint" class="hint" data-i18n="loadHint">请载入含蛋白和小分子的复合物结构</div>
+    <div class="status"><span data-i18n="ligLabel">配体</span>：<span id="lig" data-i18n="notLoaded">未载入</span></div>
+    <div id="espbar" class="espbar"><span data-i18n="espTitle">静电势 (近似)</span><div class="espgrad"></div><div style="display:flex;justify-content:space-between"><span data-i18n="neg">负</span><span data-i18n="pos">正</span></div></div>
+    <div id="legend" class="legend"></div>
+  </div>
+</div>
+
+<script>
+const I18N = {
+  zh: {subtitle:'蛋白-配体相互作用 · 前后景深与严格 π-cation', load:'载入复合物', drop:'拖入或点击选择 PDB / mmCIF', basic:'基础显示', bg:'背景', white:'白色', black:'黑色', darkc:'深色', protColor:'蛋白 Cartoon 色', ligColor:'配体碳色', resColor:'口袋残基碳色', opacity:'Cartoon 透明度', stick:'棒粗细', depthBox:'景深 (Depth cueing)', depth:'启用景深', frontDepth:'前景深（近裁剪）', backDepth:'后景深（远裁剪）', depthNote:'前景深裁掉靠近镜头的结构，后景深裁掉远处结构，两者配合可突出结合口袋。', dbond:'官能团双键显示', sidechain:'显示口袋残基侧链', hydrogen:'氢原子', hmode:'氢显示模式', hpolar:'仅极性氢', hall:'显示所有氢', hnone:'隐藏所有氢', addH:'自动补极性氢（无氢时）', explicitH:'显式氢', polarH:'极性氢', geomHB:'几何氢键', interactions:'相互作用类型', hbond:'氢键 / 极性接触', saltbridge:'盐桥', pipi:'π-π 堆积', pication:'π-cation', surface:'分子表面 / 静电势', surfType:'表面类型', sNone:'无', sLig:'配体表面', sPocket:'口袋表面', sProt:'整体蛋白表面', sEspLig:'静电势面（配体）', sEspProt:'静电势面（蛋白）', surfOp:'表面透明度', espNote:'静电势为基于原子伪电荷的近似 ESP 着色，红=负 / 蓝=正，定性判读用。', labels:'残基标签', showLabel:'显示口袋标签', autoLabel:'标签颜色跟随背景', labelSize:'标签字号', export:'导出 PNG', loadHint:'请载入含蛋白和小分子的复合物结构', ligLabel:'配体', notLoaded:'未载入', espTitle:'静电势 (近似)', neg:'负', pos:'正', notRec:'未识别'},
+  en: {subtitle:'Protein–Ligand Interactions · Front/Back depth & strict π-cation', load:'Load Complex', drop:'Drag & drop or click to select PDB / mmCIF', basic:'Basic Display', bg:'Background', white:'White', black:'Black', darkc:'Dark', protColor:'Protein Cartoon', ligColor:'Ligand Carbon', resColor:'Pocket Residue Carbon', opacity:'Cartoon Opacity', stick:'Stick Radius', depthBox:'Depth cueing', depth:'Enable depth', frontDepth:'Front depth (near clip)', backDepth:'Back depth (far clip)', depthNote:'Front depth clips structures near the camera; back depth clips distant structures. Combine to highlight the pocket.', dbond:'Show Functional Double Bonds', sidechain:'Show Pocket Side Chains', hydrogen:'Hydrogens', hmode:'Hydrogen Mode', hpolar:'Polar H only', hall:'Show all H', hnone:'Hide all H', addH:'Auto add polar H (if none)', explicitH:'Explicit H', polarH:'Polar H', geomHB:'Geom. H-bonds', interactions:'Interaction Types', hbond:'H-bond / Polar', saltbridge:'Salt Bridge', pipi:'π-π Stacking', pication:'π-cation', surface:'Surface / Electrostatics', surfType:'Surface Type', sNone:'None', sLig:'Ligand Surface', sPocket:'Pocket Surface', sProt:'Whole Protein Surface', sEspLig:'ESP Surface (Ligand)', sEspProt:'ESP Surface (Protein)', surfOp:'Surface Opacity', espNote:'Approximate ESP from atomic pseudo-charges. Red=negative / Blue=positive, qualitative only.', labels:'Residue Labels', showLabel:'Show Pocket Labels', autoLabel:'Label Color Follows Background', labelSize:'Label Font Size', export:'Export PNG', loadHint:'Please load a protein–ligand complex structure', ligLabel:'Ligand', notLoaded:'Not loaded', espTitle:'ESP (approx.)', neg:'Neg', pos:'Pos', notRec:'Not detected'}
+};
+let LANG='zh';
+function applyLang(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{ const k=el.getAttribute('data-i18n'); if(I18N[LANG][k]!==undefined) el.textContent=I18N[LANG][k]; });
+  document.getElementById('langBtn').textContent = LANG==='zh'?'EN':'中';
+  document.documentElement.lang = LANG==='zh'?'zh-CN':'en';
+  if(m) render();
+}
+
+const PROT_PALETTE = [
+  ['#D6C3A0','tan'],['#6E93D6','cornflower'],['#B58FD6','med purple'],['#5FB98F','sea green'],
+  ['#E0C060','goldenrod'],['#E38C8C','salmon'],['#8FC6E0','sky blue'],['#C0C0C8','silver'],
+  ['#7F8FA6','slate gray'],['#A8D8A0','pale green']
+];
+const LIG_PALETTE = [
+  ['#33DDDD','cyan'],['#3FB56B','green'],['#E5C230','yellow'],['#E24BC0','magenta'],
+  ['#FF8A3D','orange'],['#B0B0B8','gray'],['#FA8072','salmon'],['#9D7CE0','purple'],
+  ['#5FA8FF','blue'],['#F2F2F2','white']
+];
+
+let v, m, builtH = [], modelRadius = 40;
+const $ = x => document.getElementById(x);
+const ions = new Set(['HOH','WAT','H2O','DOD','NA','CL','K','MG','ZN','CA','MN','FE','CU','CO','NI','CD','SO4','PO4','ACT','EDO','GOL','PEG','DMS','BR','IOD','NAG','BMA','MAN','FUC']);
+const aa = new Set(['ALA','ARG','ASN','ASP','CYS','GLN','GLU','GLY','HIS','ILE','LEU','LYS','MET','PHE','PRO','SER','THR','TRP','TYR','VAL','SEC','MSE','HID','HIE','HIP','CYX']);
+const isLig = a => a.hetflag && !ions.has((a.resn||'').toUpperCase()) && !aa.has((a.resn||'').toUpperCase());
+const dist = (a,b) => Math.hypot(a.x-b.x, a.y-b.y, a.z-b.z);
+const pos = a => ({x:a.x, y:a.y, z:a.z});
+const on = id => $(id).classList.contains('on');
+const sub = (a,b) => ({x:a.x-b.x, y:a.y-b.y, z:a.z-b.z});
+const norm = a => { const n = Math.hypot(a.x,a.y,a.z)||1; return {x:a.x/n, y:a.y/n, z:a.z/n}; };
+const cross = (a,b) => ({x:a.y*b.z-a.z*b.y, y:a.z*b.x-a.x*b.z, z:a.x*b.y-a.y*b.x});
+const centroid = arr => { const c={x:0,y:0,z:0}; arr.forEach(a=>{c.x+=a.x;c.y+=a.y;c.z+=a.z;}); const n=arr.length||1; return {x:c.x/n,y:c.y/n,z:c.z/n}; };
+
+function buildSwatch(hostId, palette, target){
+  const host=$(hostId);
+  palette.forEach(([hex,name])=>{ const b=document.createElement('div'); b.className='sw'; b.style.background=hex; b.title=name; b.onclick=()=>{ $(target).value=hex; render(); }; host.appendChild(b); });
+}
+buildSwatch('protSwatch', PROT_PALETTE, 'pc');
+buildSwatch('ligSwatch', LIG_PALETTE, 'lc');
+
+const HNAME = /^\s*\d*\s*[HD]/i;
+function isHydrogen(a){
+  const el=(a.elem||'').toUpperCase();
+  if(el==='H'||el==='D') return true;
+  const nm=(a.atom||a.name||'').trim();
+  return HNAME.test(nm) && !/^HG|^HE|^HF|^HO|^HS/i.test(nm.replace(/^\d+/,''));
+}
+function normalizeHydrogens(model){ let n=0; model.selectedAtoms({}).forEach(a=>{ if((a.elem||'').toUpperCase()!=='H' && isHydrogen(a)){a.elem='H';n++;} }); return n; }
+function nearestHeavy(h,heavy){ let best=null,bd=1e9; for(const a of heavy){const d=dist(h,a); if(d<bd){bd=d;best=a;}} return bd<=1.35?best:null; }
+
+function assignPseudoCharge(model){
+  model.selectedAtoms({}).forEach(a=>{
+    const rn=(a.resn||'').toUpperCase(), nm=(a.atom||'').toUpperCase(); let q=0;
+    if(rn==='ASP'&&(nm==='OD1'||nm==='OD2')) q=-0.5;
+    else if(rn==='GLU'&&(nm==='OE1'||nm==='OE2')) q=-0.5;
+    else if(rn==='LYS'&&nm==='NZ') q=1.0;
+    else if(rn==='ARG'&&(nm==='NH1'||nm==='NH2'||nm==='NE')) q=0.33;
+    else if(rn.startsWith('HI')&&(nm==='ND1'||nm==='NE2')) q=0.25;
+    else if(nm==='O') q=-0.4;
+    else if(nm==='N') q=0.3;
+    else if(isLig(a)){ const el=(a.elem||'').toUpperCase(); if(el==='O') q=-0.35; else if(el==='N') q=0.35; }
+    a.partialCharge=q;
+  });
+}
+
+const AROM={PHE:[['CG','CD1','CD2','CE1','CE2','CZ']],TYR:[['CG','CD1','CD2','CE1','CE2','CZ']],
+  HIS:[['CG','ND1','CD2','CE1','NE2']],HID:[['CG','ND1','CD2','CE1','NE2']],HIE:[['CG','ND1','CD2','CE1','NE2']],HIP:[['CG','ND1','CD2','CE1','NE2']],
+  TRP:[['CG','CD1','NE1','CE2','CD2'],['CD2','CE2','CE3','CZ2','CZ3','CH2']]};
+function ringGeom(ring){ const c=centroid(ring); let n={x:0,y:0,z:0}; for(let i=0;i<ring.length;i++){ const va=sub(ring[i],c),vb=sub(ring[(i+1)%ring.length],c),cr=cross(va,vb); n.x+=cr.x;n.y+=cr.y;n.z+=cr.z; } return {c,n:norm(n)}; }
+function isPlanar(ring){ const {c,n}=ringGeom(ring); return ring.every(a=>Math.abs((a.x-c.x)*n.x+(a.y-c.y)*n.y+(a.z-c.z)*n.z)<0.6); }
+function ringAtomsList(las){
+  const heavy=las.filter(a=>(a.elem||'').toUpperCase()!=='H'); const adj=new Map(); heavy.forEach(a=>adj.set(a,[]));
+  for(let i=0;i<heavy.length;i++) for(let j=i+1;j<heavy.length;j++){ const d=dist(heavy[i],heavy[j]); if(d>0.4&&d<=1.75){adj.get(heavy[i]).push(heavy[j]);adj.get(heavy[j]).push(heavy[i]);} }
+  const rings=[],seen=new Set();
+  function dfs(start,cur,path){ for(const nb of adj.get(cur)){ if(nb===start&&path.length>=5){ const key=path.map(a=>a.index).slice().sort((x,y)=>x-y).join(','); if(!seen.has(key)){seen.add(key);rings.push(path.slice());} } else if(!path.includes(nb)&&path.length<6){ dfs(start,nb,path.concat(nb)); } } }
+  heavy.forEach(a=>dfs(a,a,[a]));
+  const uniq=[],keys=new Set(); rings.forEach(r=>{ const k=r.map(a=>a.index).slice().sort((x,y)=>x-y).join(','); if(!keys.has(k)){keys.add(k); if(isPlanar(r)) uniq.push(r);} });
+  return uniq;
+}
+function ringBondsOk(ring){
+  // 芳香键长模式：C-C/C-N ~1.34-1.40；含 S(噻吩)~1.71；含 O(呋喃)~1.36；sp3 C-C(~1.53) 会被排除
+  for(let i=0;i<ring.length;i++){
+    const A=ring[i], B=ring[(i+1)%ring.length];
+    const ea=(A.elem||'').toUpperCase(), eb=(B.elem||'').toUpperCase();
+    const b=dist(A,B); let lo=1.25, hi=1.45;
+    if(ea==='S'||eb==='S'){ lo=1.60; hi=1.82; }
+    else if(ea==='O'||eb==='O'){ lo=1.28; hi=1.48; }
+    if(b<lo||b>hi) return false;
+  }
+  return true;
+}
+function isAromaticRing(ring, ligAtoms){
+  if(ring.length<5||ring.length>6) return false;
+  if(!ring.every(a=>['C','N','O','S'].includes((a.elem||'').toUpperCase()))) return false;
+  // 1) 紧平面性（芳香环极平；饱和/内酰胺环有褶皱）
+  const {c,n}=ringGeom(ring);
+  let maxdev=0; for(const a of ring){ maxdev=Math.max(maxdev, Math.abs((a.x-c.x)*n.x+(a.y-c.y)*n.y+(a.z-c.z)*n.z)); }
+  if(maxdev>0.30) return false;
+  // 2) sp2 检验：环上任一原子(重原子邻居+氢)连接数>=4 → sp3(如内酰胺 CH2) → 非芳香
+  const Hs = ligAtoms.filter(a=>(a.elem||'').toUpperCase()==='H');
+  for(const a of ring){
+    const heavyN = ligAtoms.filter(b=>b!==a && (b.elem||'').toUpperCase()!=='H' && dist(a,b)>0.4 && dist(a,b)<=1.85).length;
+    const hN = Hs.filter(h=>dist(a,h)>0.4 && dist(a,h)<=1.30).length;
+    if(heavyN + hN >= 4) return false;   // sp3 原子存在 → 整环非芳香
+  }
+  // 3) 键长模式：排除 sp3 单键环
+  if(!ringBondsOk(ring)) return false;
+  return true;
+}
+function ligandAromaticRings(las){ return ringAtomsList(las).filter(r=>isAromaticRing(r, las)).map(ringGeom); }
+
+// ===== 严格阳离子端：N 有 4 个键(含≥1个 N-H)，且为脂肪胺(重原子只连C) 或 脒/胍 =====
+// 返回阳离子 N 的原子对象（距离从 N 出发）
+function ligandCationN(allAtoms){
+  const heavy=allAtoms.filter(a=>(a.elem||'').toUpperCase()!=='H');
+  const H=allAtoms.filter(a=>(a.elem||'').toUpperCase()==='H');
+  const heavyNbrs=a=>heavy.filter(b=>b!==a&&dist(a,b)>0.4&&dist(a,b)<=1.85);
+  const hNbrs=a=>H.filter(h=>dist(a,h)>0.4&&dist(a,h)<=1.30);
+  const ringSets=ringAtomsList(heavy.filter(isLig)).map(r=>new Set(r.map(a=>a.index)));
+  const inRing=a=>ringSets.some(s=>s.has(a.index));
+  const cats=[];
+  heavy.forEach(a=>{
+    if(!isLig(a)) return;
+    if((a.elem||'').toUpperCase()!=='N') return;
+    if(inRing(a)) return;                                  // 芳香/环内 N 排除
+    const hv=heavyNbrs(a), hh=hNbrs(a);
+    const total=hv.length+hh.length;
+    // 条件1：N 共 4 个键，且至少一个是 N-H（质子化铵型）
+    if(total!==4 || hh.length<1) return;
+    // 条件2：脂肪胺（重原子邻居全是 C）
+    const allC = hv.length>0 && hv.every(x=>(x.elem||'').toUpperCase()==='C');
+    // 条件2b：脒/胍（邻位某 C 连接≥2个 N）
+    const amidine = hv.some(c=>(c.elem||'').toUpperCase()==='C' && heavyNbrs(c).filter(x=>(x.elem||'').toUpperCase()==='N').length>=2);
+    // 排除酰胺 N（邻 C 带末端羰基 O）
+    const amide = hv.some(c=>(c.elem||'').toUpperCase()==='C' && heavyNbrs(c).some(o=>(o.elem||'').toUpperCase()==='O' && heavyNbrs(o).length===1));
+    if(amide) return;
+    if(allC || amidine) cats.push(a);                      // 存 N 原子本体
+  });
+  return cats;
+}
+function ligandAnions(las){
+  const heavy=las.filter(a=>(a.elem||'').toUpperCase()!=='H'); const nbrs=a=>heavy.filter(b=>b!==a&&dist(a,b)>0.4&&dist(a,b)<=1.8);
+  const ans=[];
+  heavy.forEach(a=>{ if((a.elem||'').toUpperCase()==='C'){ const os=nbrs(a).filter(b=>(b.elem||'').toUpperCase()==='O'); const term=os.filter(o=>nbrs(o).length===1); if(term.length>=2) ans.push(centroid(term)); } });
+  return ans;
+}
+
+function init(){ if(!window.$3Dmol){alert('3Dmol load failed / 引擎加载失败');return;} v=$3Dmol.createViewer('viewer',{backgroundColor:'white',antialias:true}); }
+init();
+
+$('langBtn').onclick=()=>{ LANG = LANG==='zh'?'en':'zh'; applyLang(); };
+['addH','pocket','dbond','label','autolabel','iHB','iSB','iPP','iPC','depth'].forEach(id=>$(id).onclick=()=>{$(id).classList.toggle('on');render();});
+['bg','pc','lc','resc','op','rad','hmode','surf','surfop','lsize','frontv','backv'].forEach(id=>{ $(id).oninput=render; $(id).onchange=render; });
+
+function buildPolarH(atoms){
+  const heavy=atoms.filter(a=>(a.elem||'').toUpperCase()!=='H');
+  const bondedTo=a=>heavy.filter(b=>{ if(b===a) return false; const d=dist(a,b); const s=(['S'].includes((a.elem||'').toUpperCase())||['S'].includes((b.elem||'').toUpperCase()))?2.0:1.85; return d>0.4&&d<=s; });
+  const out=[];
+  for(const a of heavy){ const el=(a.elem||'').toUpperCase(); if(el!=='N'&&el!=='O') continue; if(atoms.some(h=>(h.elem||'').toUpperCase()==='H'&&dist(h,a)<=1.3)) continue; const nb=bondedTo(a); if(!nb.length) continue; const bl=el==='O'?0.96:1.01; let dir;
+    if(nb.length>=2){ const s={x:0,y:0,z:0}; nb.forEach(b=>{const u=norm(sub(a,b));s.x+=u.x;s.y+=u.y;s.z+=u.z;}); if(Math.hypot(s.x,s.y,s.z)<0.15) continue; dir=norm(s); }
+    else{ const b=nb[0],axis=norm(sub(a,b)); let ref={x:0,y:0,z:1}; if(Math.abs(axis.z)>0.9) ref={x:1,y:0,z:0}; const perp=norm(cross(axis,ref)); const ang=(el==='O'?109.5:120)*Math.PI/180; dir=norm({x:axis.x*Math.cos(ang)+perp.x*Math.sin(ang),y:axis.y*Math.cos(ang)+perp.y*Math.sin(ang),z:axis.z*Math.cos(ang)+perp.z*Math.sin(ang)}); }
+    out.push({elem:'H',x:a.x+dir.x*bl,y:a.y+dir.y*bl,z:a.z+dir.z*bl,resn:a.resn,resi:a.resi,chain:a.chain,hetflag:a.hetflag,_parent:a});
+  }
+  return out;
+}
+
+function applyDepth(){
+  if(!v) return;
+  try{
+    if(on('depth')){
+      const fr=+$('frontv').value;                 // 前景深 0..0.95
+      const bk=+$('backv').value;                  // 后景深 0..0.95
+      const near=-modelRadius*1.6*(1-fr);          // fr 越大，近裁剪面越向前推
+      const far = modelRadius*1.6*(1-bk);          // bk 越大，远裁剪面越向前收
+      v.setSlab(near, Math.max(far, near+2));
+    } else {
+      v.setSlab(-100000, 100000);
+    }
+  }catch(e){ /* 老版本无 setSlab，忽略 */ }
+}
+
+function render(){
+  if(!m) return;
+  v.removeAllShapes(); v.removeAllLabels(); v.removeAllSurfaces(); v.setStyle({},{});
+  const bg=$('bg').value; v.setBackgroundColor(bg);
+  const dark = bg!=='white';
+
+  const all=m.selectedAtoms({});
+  const heavy=all.filter(a=>!isHydrogen(a));
+  const las=all.filter(isLig);
+  const lr=[...new Set(las.map(a=>a.resn))];
+  const pc=$('pc').value, lc=$('lc').value, resc=$('resc').value, rad=+$('rad').value, op=+$('op').value;
+  const hmode=$('hmode').value, dbond=on('dbond');
+  const nativeH=all.filter(isHydrogen);
+  const drawDash=(p,q,color)=>v.addCylinder({start:p,end:q,radius:.05,dashed:true,fromCap:1,toCap:1,color});
+
+  const polarHSet=new Set(), hKey=h=>(h.index ?? h.serial ?? h);
+  nativeH.forEach(h=>{ const p=nearestHeavy(h,heavy); const pe=p?(p.elem||'').toUpperCase():''; if(['N','O','S'].includes(pe)) polarHSet.add(hKey(h)); });
+  const showThisH=h=> hmode==='all'?true : hmode==='none'?false : polarHSet.has(hKey(h));
+
+  v.setStyle({hetflag:false},{cartoon:{color:pc,opacity:op,arrows:true,style:'rectangle',thickness:0.4}});
+
+  const ligSphere=0.24;
+  v.setStyle({resn:lr,hetflag:true,elem:['C','N','O','S','P','F','Cl','Br','I','B','Se']},{stick:{radius:rad,colorscheme:'Jmol',singleBonds:!dbond},sphere:{scale:ligSphere}});
+  v.setStyle({resn:lr,hetflag:true,elem:'C'},{stick:{radius:rad,color:lc,singleBonds:!dbond},sphere:{scale:ligSphere,color:lc}});
+
+  const prot=all.filter(a=>!a.hetflag);
+  const near=prot.filter(a=>las.some(l=>dist(a,l)<=4.3));
+  const keys=[...new Set(near.map(a=>(a.chain||'_')+'|'+a.resn+'|'+a.resi))];
+  const resAll={}; prot.forEach(a=>{const k=(a.chain||'_')+'|'+a.resn+'|'+a.resi;(resAll[k]=resAll[k]||[]).push(a);});
+  const resStickR=rad*0.75;
+  if(on('pocket')) keys.forEach(k=>{ const [c,r,i]=k.split('|');
+    v.setStyle({chain:c==='_'?'':c,resn:r,resi:+i,hetflag:false,elem:['N','O','S']},{cartoon:{color:pc,opacity:op,arrows:true,style:'rectangle',thickness:0.4},stick:{radius:resStickR,colorscheme:'Jmol',singleBonds:!dbond}});
+    v.setStyle({chain:c==='_'?'':c,resn:r,resi:+i,hetflag:false,elem:'C'},{cartoon:{color:pc,opacity:op,arrows:true,style:'rectangle',thickness:0.4},stick:{radius:resStickR,color:resc,singleBonds:!dbond}});
+  });
+
+  const ligHIdx=[], resHIdx=[];
+  if(hmode!=='none'){
+    nativeH.forEach(h=>{ if(!showThisH(h)) return; const inLig=isLig(h), inPocket=keys.includes((h.chain||'_')+'|'+h.resn+'|'+h.resi); if(inLig) ligHIdx.push(h.index); else if(inPocket && on('pocket')) resHIdx.push(h.index); });
+  }
+  if(ligHIdx.length) v.setStyle({index:ligHIdx},{stick:{radius:rad,colorscheme:'Jmol'},sphere:{scale:ligSphere}});
+  if(resHIdx.length) v.setStyle({index:resHIdx},{stick:{radius:resStickR,colorscheme:'Jmol'}});
+
+  builtH=[];
+  if(nativeH.length===0 && on('addH') && hmode!=='none'){
+    builtH=buildPolarH(las.concat(on('pocket')?near:[]));
+    builtH.forEach(h=>{ const big=isLig(h._parent); v.addSphere({center:pos(h),radius:big?ligSphere*1.6:resStickR*2,color:'white'}); v.addCylinder({start:pos(h._parent),end:pos(h),radius:big?rad:resStickR,color:'white'}); });
+  }
+
+  const polar=heavy.filter(a=>['N','O','S'].includes((a.elem||'').toUpperCase()));
+  const polarH=nativeH.filter(h=>polarHSet.has(hKey(h))).map(h=>({h,donor:nearestHeavy(h,heavy)})).concat(builtH.map(h=>({h,donor:h._parent})));
+  let hbLines=[];
+  for(const {h,donor} of polarH){ if(!donor) continue; for(const a of polar){ if(a===donor||dist(h,a)>2.7) continue; if(isLig(donor)!==isLig(a)) hbLines.push([pos(h),pos(a)]); } }
+  if(!hbLines.length){ const lp=las.filter(a=>['N','O','S'].includes((a.elem||'').toUpperCase())); const np=near.filter(a=>['N','O','S'].includes((a.elem||'').toUpperCase())); for(const l of lp) for(const p of np) if(dist(l,p)<=3.5) hbLines.push([pos(l),pos(p)]); }
+  if(on('iHB')) hbLines.forEach(x=>drawDash(x[0],x[1],'#d4c200'));
+
+  // 蛋白芳环 + 阳离子N(Arg NH1/NH2/NE, Lys NZ) + 阴离子(Asp/Glu)
+  const protRings=[],protCatN=[],protAns=[]; const named=(atoms,nm)=>atoms.find(a=>(a.atom||'').toUpperCase()===nm);
+  keys.forEach(k=>{ const rn=k.split('|')[1].toUpperCase(); const atoms=resAll[k]||[];
+    (AROM[rn]||[]).forEach(names=>{ const ring=names.map(nm=>named(atoms,nm)).filter(Boolean); if(ring.length>=5) protRings.push(ringGeom(ring)); });
+    if(rn==='ARG'){ ['NH1','NH2','NE'].forEach(nm=>{ const nAtom=named(atoms,nm); if(nAtom) protCatN.push(pos(nAtom)); }); }
+    if(rn==='LYS'){ const z=named(atoms,'NZ'); if(z) protCatN.push(pos(z)); }
+    if(rn==='ASP'){ const c=['OD1','OD2'].map(nm=>named(atoms,nm)).filter(Boolean); if(c.length) protAns.push(centroid(c)); }
+    if(rn==='GLU'){ const c=['OE1','OE2'].map(nm=>named(atoms,nm)).filter(Boolean); if(c.length) protAns.push(centroid(c)); }
+  });
+  const ligRings=ligandAromaticRings(las);
+  const ligCatNatoms=ligandCationN(all);          // 传入含 H 的全部原子
+  const ligCatN=ligCatNatoms.map(pos);
+  const ligAns=ligandAnions(las);
+
+  if(on('iSB')){ protCatN.forEach(c=>ligAns.forEach(a=>{ if(dist(c,a)<=4.5) drawDash(c,a,'#ff7b00'); })); protAns.forEach(a=>ligCatN.forEach(c=>{ if(dist(a,c)<=4.5) drawDash(a,c,'#ff7b00'); })); }
+  if(on('iPP')){ protRings.forEach(pr=>ligRings.forEach(lg=>{ const d=dist(pr.c,lg.c); if(d<3.3||d>6.0) return; const cosn=Math.abs(pr.n.x*lg.n.x+pr.n.y*lg.n.y+pr.n.z*lg.n.z); if(cosn>0.7||cosn<0.4){ drawDash(pr.c,lg.c,'#22c55e'); v.addSphere({center:pr.c,radius:.18,color:'#22c55e'}); v.addSphere({center:lg.c,radius:.18,color:'#22c55e'}); } })); }
+  // π-cation：距离从阳离子 N 出发，量到芳环质心；N 须在环法向轴附近
+  const pcHit=(ring,nPos)=>{ const d=dist(ring.c,nPos); if(d<3||d>6) return false; const vx=nPos.x-ring.c.x,vy=nPos.y-ring.c.y,vz=nPos.z-ring.c.z,nn=Math.hypot(vx,vy,vz)||1; return Math.abs((vx*ring.n.x+vy*ring.n.y+vz*ring.n.z)/nn)>0.6; };
+  if(on('iPC')){
+    // 蛋白芳环 ↔ 配体阳离子N
+    protRings.forEach(pr=>ligCatN.forEach(c=>{ if(pcHit(pr,c)){ drawDash(c,pr.c,'#38bdf8'); v.addSphere({center:pr.c,radius:.18,color:'#38bdf8'}); v.addSphere({center:c,radius:.20,color:'#38bdf8'}); } }));
+    // 配体芳环 ↔ 蛋白阳离子N(Arg/Lys)
+    ligRings.forEach(lg=>protCatN.forEach(c=>{ if(pcHit(lg,c)){ drawDash(c,lg.c,'#38bdf8'); v.addSphere({center:lg.c,radius:.18,color:'#38bdf8'}); v.addSphere({center:c,radius:.20,color:'#38bdf8'}); } }));
+  }
+
+  const st=$('surf').value, sop=+$('surfop').value; $('espbar').style.display='none';
+  const espScheme={prop:'partialCharge',gradient:'rwb',min:-0.6,max:0.6};
+  if(st==='ligand') v.addSurface($3Dmol.SurfaceType.SES,{opacity:sop,color:lc},{resn:lr,hetflag:true});
+  else if(st==='pocket'){ const sel={or:keys.map(k=>{const [c,r,i]=k.split('|');return {chain:c==='_'?'':c,resi:+i};})}; v.addSurface($3Dmol.SurfaceType.SES,{opacity:sop,color:pc},{hetflag:false}, sel); }
+  else if(st==='protein') v.addSurface($3Dmol.SurfaceType.SES,{opacity:sop,color:pc},{hetflag:false});
+  else if(st==='esp_lig'){ v.addSurface($3Dmol.SurfaceType.SES,{opacity:sop,colorscheme:espScheme},{resn:lr,hetflag:true}); $('espbar').style.display='block'; }
+  else if(st==='esp_prot'){ v.addSurface($3Dmol.SurfaceType.SES,{opacity:sop,colorscheme:espScheme},{hetflag:false}); $('espbar').style.display='block'; }
+
+  if(on('label')){ const lcol=on('autolabel')?(dark?'white':'#111827'):'#111827'; const lbg=on('autolabel')?(dark?'#111827':'white'):'white'; const fs=+$('lsize').value;
+    keys.forEach(k=>{ const a=named(resAll[k]||[],'CA')||(resAll[k]||[])[0]; if(a) v.addLabel(k.split('|')[1]+k.split('|')[2],{position:pos(a),fontSize:fs,fontColor:lcol,backgroundColor:lbg,backgroundOpacity:.82,borderColor:'#64748b',borderThickness:.5}); });
+  }
+
+  const T=I18N[LANG];
+  const items=[]; if(on('iHB'))items.push(['#d4c200',T.hbond]); if(on('iSB'))items.push(['#ff7b00',T.saltbridge]); if(on('iPP'))items.push(['#22c55e',T.pipi]); if(on('iPC'))items.push(['#38bdf8',T.pication]);
+  $('legend').innerHTML=items.map(([c,t])=>`<div><span class="itag" style="border-color:${c}"></span>${t}</div>`).join('')||`<div style="color:#94a3b8">${LANG==='zh'?'未开启相互作用':'No interactions on'}</div>`;
+
+  $('lig').textContent=lr.join(', ')||T.notRec;
+  $('hc').textContent=nativeH.length; $('hp').textContent=polarHSet.size; $('hbn').textContent=hbLines.length;
+  applyDepth();
+  v.render();
+}
+
+function load(f){ const r=new FileReader(); r.onload=()=>{ try{ v.clear(); m=v.addModel(r.result,/cif/i.test(f.name)?'cif':'pdb',{keepH:true}); normalizeHydrogens(m); assignPseudoCharge(m); const A=m.selectedAtoms({}); const c=centroid(A); let R=0; A.forEach(p=>{const d=dist(p,c); if(d>R)R=d;}); modelRadius=R||40; $('hint').style.display='none'; render(); const la=m.selectedAtoms({}).filter(isLig); v.zoomTo(la.length?{resn:[...new Set(la.map(a=>a.resn))],hetflag:true}:{}); v.zoom(.7); applyDepth(); v.render(); }catch(e){ alert('Parse failed / 解析失败：'+e.message); } }; r.readAsText(f); }
+$('drop').onclick=()=>$('file').click();
+$('file').onchange=e=>load(e.target.files[0]);
+$('drop').ondragover=e=>e.preventDefault();
+$('drop').ondrop=e=>{e.preventDefault(); load(e.dataTransfer.files[0]);};
+$('png').onclick=()=>{ if(!m) return alert('Load a structure first / 请先载入结构'); const a=document.createElement('a'); a.href=v.pngURI(); a.download='ProLigView_X.png'; a.click(); };
+
+applyLang();
+</script>
+</body>
+</html>
